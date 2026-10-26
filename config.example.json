@@ -1,0 +1,42 @@
+{
+  "auth": {
+    "username": "admin",
+    "password": "CHANGE_THIS_PASSWORD",
+    "jwt_secret": "YOUR_SUPER_SECRET_KEY_CHANGE_ME",
+    "jwt_algorithm": "HS256",
+    "token_expire_minutes": 1440
+  },
+  "database": {
+    "type": "sqlite",
+    "host": "localhost",
+    "port": 3306,
+    "user": "root",
+    "password": "",
+    "database": "ai_trade",
+    "url": "sqlite:///./ai_trade.db"
+  },
+  "app_settings": {
+    "llm_provider": "openai",
+    "llm_model": "gpt-4o",
+    "llm_api_key": "",
+    "llm_base_url": "",
+    "mt5_account": "",
+    "mt5_password": "",
+    "mt5_server": "HFMarkets-Demo",
+    "default_spread_pips": 1.4,
+    "max_risk_percentage": 1.0,
+    "news_config": {
+      "forex_factory": true,
+      "financialjuice": true,
+      "forex_live": true,
+      "yahoo_finance": true,
+      "google_news": true,
+      "msn_money": true,
+      "finnhub_active": false,
+      "finnhub_api_key": "",
+      "newsapi_active": false,
+      "newsapi_api_key": ""
+    },
+    "mt5_path": ""
+  }
+}

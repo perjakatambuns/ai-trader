@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>AI Trading Copilot | HFM MetaTrader 5</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8'
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-[#0a0e17] text-slate-100 antialiased selection:bg-blue-500 selection:text-white">
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container"></div>
+
+  <!-- Login Modal / Screen -->
+  <div id="login-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md hidden">
+    <div class="glass-panel w-full max-w-md p-6 sm:p-8 space-y-6 relative overflow-hidden border border-white/10">
+      <div class="absolute -top-12 -right-12 w-36 h-36 bg-blue-500/20 rounded-full blur-2xl pointer-events-none"></div>
+      
+      <div class="text-center space-y-2">
+        <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-400 mb-2 shadow-lg shadow-blue-500/20">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        </div>
+        <h2 class="text-2xl font-bold tracking-tight text-white">AI Trading Copilot</h2>
+        <p class="text-sm text-slate-400">Masuk untuk mengakses terminal analisa HFM MT5</p>
+      </div>
+
+      <form id="login-form" class="space-y-4" onsubmit="handleLogin(event)">
+        <div class="space-y-1">
+          <label class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Username</label>
+          <input type="text" id="login-username" required class="custom-input" placeholder="admin" value="admin">
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Password</label>
+          <input type="password" id="login-password" required class="custom-input" placeholder="Masukkan password" value="" autocomplete="current-password">
+        </div>
+        <div class="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300 flex items-start gap-2">
+          <svg class="w-4 h-4 mt-0.5 shrink-0 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span>Password default: <code class="font-mono text-blue-200">password123</code> (dapat diubah di tab Pengaturan atau file <code class="font-mono text-blue-200">config.json</code>).</span>
+        </div>
+        <button type="submit" id="login-submit-btn" class="w-full py-3 px-4 rounded-xl btn-primary font-semibold text-sm flex items-center justify-center gap-2">
+          <span>Masuk ke Dashboard</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Main Layout -->
+  <div id="app-container" class="min-h-screen flex flex-col">
+    
+    <!-- Top Sticky Header -->
+    <header class="app-header px-4 py-3 sm:px-6">
+      <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        
+        <!-- Brand & MT5 Status -->
+        <div class="flex items-center justify-between w-full sm:w-auto">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/30 text-white font-black text-lg">
+              ⚡
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h1 class="text-base sm:text-lg font-bold tracking-tight text-white">AI Trading Copilot</h1>
+                <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">HFM MT5</span>
+              </div>
+              <div class="flex items-center gap-2 text-xs text-slate-400">
+                <span id="mt5-status-dot" class="pulse-dot pulse-green"></span>
+                <span id="mt5-status-text">Menghubungkan MT5...</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mobile Quick Action (Logout) -->
+          <button onclick="handleLogout()" class="sm:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800" title="Keluar">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+          </button>
+        </div>
+
+        <!-- Account Metrics Bar -->
+        <div class="flex flex-wrap items-center gap-2 sm:gap-4 w-full sm:w-auto justify-between sm:justify-end text-xs">
+          <!-- Balance & Equity -->
+          <div class="flex items-center gap-3 bg-slate-900/80 border border-slate-800 rounded-xl px-3 py-1.5 shadow-inner">
+            <div>
+              <span class="text-slate-400 block text-[10px] uppercase">Balance</span>
+              <span id="header-balance" class="font-mono font-bold text-emerald-400 text-sm">$0.00</span>
+            </div>
+            <div class="w-px h-6 bg-slate-800"></div>
+            <div>
+              <span class="text-slate-400 block text-[10px] uppercase">Equity</span>
+              <span id="header-equity" class="font-mono font-bold text-blue-400 text-sm">$0.00</span>
+            </div>
+            <button type="button" onclick="refreshMT5Account()" class="p-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors" title="Muat Ulang Saldo MT5">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            </button>
+          </div>
+
+          <!-- Dollar Index (DXY) Live Badge -->
+          <div class="flex items-center gap-2 bg-slate-900/80 border border-amber-500/30 rounded-xl px-3 py-1.5 shadow-inner" title="Index Dollar AS (DXY)">
+            <div>
+              <span class="text-amber-400 block text-[10px] uppercase font-bold tracking-wider">Index Dollar</span>
+              <span id="header-dxy" class="font-mono font-bold text-amber-300 text-sm">DXY 101.93</span>
+            </div>
+          </div>
+
+          <!-- Dual Live Clocks (GMT+0 & GMT+7) -->
+          <div class="flex items-center gap-2 bg-slate-900/80 border border-indigo-500/30 rounded-xl px-3 py-1.5 shadow-inner" title="Jam Pasar Forex (GMT+0) & Waktu Lokal (GMT+7)">
+            <div>
+              <span class="text-indigo-400 block text-[10px] uppercase font-bold tracking-wider">Jam Pasar (2 Versi)</span>
+              <div class="flex items-center gap-2 font-mono text-xs">
+                <span class="text-slate-300" title="Greenwich Mean Time (GMT+0)"><strong class="text-slate-400 font-sans text-[10px]">GMT+0:</strong> <span id="clock-gmt" class="font-bold text-emerald-400">--:--:--</span></span>
+                <span class="text-slate-600">|</span>
+                <span class="text-blue-300" title="Waktu Indonesia Barat (GMT+7)"><strong class="text-blue-400 font-sans text-[10px]">GMT+7:</strong> <span id="clock-gmt7" class="font-bold text-blue-300">--:--:--</span></span>
+              </div>
+            </div>
+          </div>
+          <script>
+            (function() {
+              function updateClocks() {
+                try {
+                  var now = new Date();
+                  var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+                  var gmtEl = document.getElementById("clock-gmt");
+                  if (gmtEl) {
+                    gmtEl.textContent = pad(now.getUTCHours()) + ':' + pad(now.getUTCMinutes()) + ':' + pad(now.getUTCSeconds());
+                  }
+                  var d7 = new Date(now.getTime() + (7 * 3600 * 1000));
+                  var gmt7El = document.getElementById("clock-gmt7");
+                  if (gmt7El) {
+                    gmt7El.textContent = pad(d7.getUTCHours()) + ':' + pad(d7.getUTCMinutes()) + ':' + pad(d7.getUTCSeconds());
+                  }
+                  var utcH = now.getUTCHours();
+                  var tok = document.getElementById("session-tokyo");
+                  var lon = document.getElementById("session-london");
+                  var ny = document.getElementById("session-ny");
+                  if (tok) tok.className = (utcH >= 0 && utcH < 9) ? "px-2 py-0.5 rounded text-[11px] font-bold text-amber-300 bg-amber-500/20 border border-amber-500/30" : "px-2 py-0.5 rounded text-[11px] font-medium text-slate-400 bg-slate-800/50";
+                  if (lon) lon.className = (utcH >= 8 && utcH < 16) ? "px-2 py-0.5 rounded text-[11px] font-bold text-emerald-300 bg-emerald-500/20 border border-emerald-500/30" : "px-2 py-0.5 rounded text-[11px] font-medium text-slate-400 bg-slate-800/50";
+                  if (ny) ny.className = (utcH >= 13 && utcH < 21) ? "px-2 py-0.5 rounded text-[11px] font-bold text-blue-300 bg-blue-500/20 border border-blue-500/30" : "px-2 py-0.5 rounded text-[11px] font-medium text-slate-400 bg-slate-800/50";
+                } catch(e) {}
+              }
+              updateClocks();
+              setInterval(updateClocks, 1000);
+            })();
+          </script>
+
+          <!-- Market Session Clocks -->
+          <div class="flex items-center gap-1.5 bg-slate-900/60 border border-slate-800/80 rounded-xl px-2.5 py-1.5">
+            <div id="session-tokyo" class="px-2 py-0.5 rounded text-[11px] font-medium text-slate-400 bg-slate-800/50">Asian</div>
+            <div id="session-london" class="px-2 py-0.5 rounded text-[11px] font-medium text-slate-400 bg-slate-800/50">London (14-18)</div>
+            <div id="session-ny" class="px-2 py-0.5 rounded text-[11px] font-medium text-slate-400 bg-slate-800/50">NY (19-23)</div>
+          </div>
+
+          <!-- Desktop Nav Links -->
+          <div class="hidden md:flex items-center gap-1 bg-slate-900/90 border border-slate-800 rounded-xl p-1">
+            <button onclick="switchTab('analyze')" class="desktop-tab-btn px-3 py-1.5 rounded-lg text-xs font-medium text-blue-400 bg-blue-500/10" data-tab="analyze">🔍 Analisa</button>
+            <button onclick="switchTab('history')" class="desktop-tab-btn px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white" data-tab="history">📊 Riwayat</button>
+            <button onclick="switchTab('settings')" class="desktop-tab-btn px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white" data-tab="settings">⚙️ Pengaturan</button>
+            <button onclick="switchTab('security')" class="desktop-tab-btn px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white" data-tab="security">🔑 Password</button>
+            <button onclick="handleLogout()" class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-red-400 hover:bg-red-500/10" title="Keluar">🚪</button>
+          </div>
+        </div>
+
+      </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
+
+      <!-- ================= TAB 1: ANALYSIS ROOM ================= -->
+      <section id="tab-analyze" class="tab-content space-y-6">
+        
+        <!-- Symbol Selection & Hit Analyze Card -->
+        <div class="glass-panel p-5 sm:p-6 space-y-4">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            
+            <div class="w-full sm:w-80 space-y-1.5">
+              <label class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center justify-between">
+                <span>Pilih Pasangan / Instrumen</span>
+                <span id="selected-symbol-info" class="text-[11px] text-blue-400 font-mono">Pip: 0.01</span>
+              </label>
+              <select id="symbol-select" onchange="onSymbolChange()" class="custom-input text-base sm:text-sm font-semibold text-white bg-slate-900 border-blue-500/30">
+                <option value="XAUUSDc" data-base="XAUUSD" data-pip="0.01">Gold Cent (XAUUSDc)</option>
+                <option value="EURUSDc" data-base="EURUSD" data-pip="0.0001">EUR/USD Cent (EURUSDc)</option>
+                <option value="USDJPYc" data-base="USDJPY" data-pip="0.01">USD/JPY Cent (USDJPYc)</option>
+                <option value="GBPUSDc" data-base="GBPUSD" data-pip="0.0001">GBP/USD Cent (GBPUSDc)</option>
+                <option value="XAUUSD" data-base="XAUUSD" data-pip="0.01">Gold Standard (XAUUSD)</option>
+                <option value="EURUSD" data-base="EURUSD" data-pip="0.0001">EUR/USD Standard (EURUSD)</option>
+              </select>
+            </div>
+
+            <!-- Quantitative Pipeline Status Indicator -->
+            <div class="hidden lg:flex items-center gap-3 text-xs text-slate-400 bg-slate-900/60 border border-slate-800 rounded-xl p-3">
+              <div class="flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                <span>MTFA (D1, H1, M30, M5)</span>
+              </div>
+              <span class="text-slate-600">→</span>
+              <div class="flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span>ForexFactory Calendar</span>
+              </div>
+              <span class="text-slate-600">→</span>
+              <div class="flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                <span>Seasonality (1Y Ago)</span>
+              </div>
+              <span class="text-slate-600">→</span>
+              <div class="flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                <span>Anti-MC Formula</span>
+              </div>
+            </div>
+
+            <!-- Big Hit Analyze CTA -->
+            <button id="hit-analyze-btn" onclick="executeAnalysis()" class="w-full sm:w-auto px-6 sm:px-8 py-3.5 rounded-xl btn-primary font-bold text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-lg shadow-blue-600/30">
+              <span id="analyze-btn-icon">🔍</span>
+              <span id="analyze-btn-text">Hit Analyze</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Empty State (Before Analysis) -->
+        <div id="analysis-empty-state" class="glass-panel p-10 text-center space-y-4">
+          <div class="w-16 h-16 mx-auto rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 text-3xl">
+            📈
+          </div>
+          <div class="max-w-md mx-auto space-y-1">
+            <h3 class="text-lg font-bold text-white">Ruang Analisa Siap</h3>
+            <p class="text-xs sm:text-sm text-slate-400">Pilih simbol yang diinginkan lalu tekan tombol <strong class="text-blue-400">Hit Analyze</strong> untuk memproses matriks multi-timeframe, kalender berita, historis musiman, dan kalkulasi lot anti-margin call.</p>
+          </div>
+        </div>
+
+        <!-- AI Recommendation Card (Appears after analysis) -->
+        <div id="analysis-result-container" class="space-y-6 hidden">
+          
+          <div class="glass-panel p-5 sm:p-7 space-y-6 border-blue-500/30 relative overflow-hidden">
+            <div id="glow-badge" class="absolute -right-20 -top-20 w-60 h-60 rounded-full blur-3xl pointer-events-none opacity-20 bg-blue-500"></div>
+
+            <!-- Header Badge & Quick Summary -->
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/10 pb-5">
+              <div class="flex items-center gap-3">
+                <span id="action-badge" class="px-4 py-1.5 rounded-xl font-black text-sm tracking-wide badge-buy">
+                  BUY_LIMIT
+                </span>
+                <div>
+                  <h3 id="result-symbol-name" class="text-lg font-bold text-white">Gold (Cent Account)</h3>
+                  <div id="result-timestamp" class="mt-1"></div>
+                </div>
+              </div>
+
+              <!-- Confidence & RR -->
+              <div class="flex items-center gap-2 text-xs font-semibold">
+                <div class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300">
+                  Risk / Reward: <span id="result-rr" class="text-blue-400 font-mono">1:2.0</span>
+                </div>
+                <div class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300">
+                  Confidence: <span id="result-confidence" class="text-emerald-400 font-mono">86%</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Key Numbers Grid (Responsive 2x3 on mobile, 6 cols on desktop) -->
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+              
+              <!-- Entry Limit -->
+              <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800/80 space-y-1">
+                <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Entry Limit</span>
+                <span id="result-entry" class="text-base sm:text-lg font-mono font-bold text-white block">1.08450</span>
+                <span class="text-[10px] text-slate-500 block">Pending Order</span>
+              </div>
+
+              <!-- Stop Loss -->
+              <div class="p-3.5 rounded-xl bg-slate-900/80 border border-red-500/20 space-y-1">
+                <span class="text-[10px] uppercase font-bold text-red-400 block tracking-wider">Stop Loss (SL)</span>
+                <span id="result-sl" class="text-base sm:text-lg font-mono font-bold text-red-400 block">1.08200</span>
+                <span class="text-[10px] text-slate-500 block">+1.4 Pips Buffer</span>
+              </div>
+
+              <!-- Take Profit -->
+              <div class="p-3.5 rounded-xl bg-slate-900/80 border border-emerald-500/20 space-y-1">
+                <span class="text-[10px] uppercase font-bold text-emerald-400 block tracking-wider">Take Profit (TP)</span>
+                <span id="result-tp" class="text-base sm:text-lg font-mono font-bold text-emerald-400 block">1.08950</span>
+                <span class="text-[10px] text-slate-500 block">Target Resistance</span>
+              </div>
+
+              <!-- Calculated Lot Size -->
+              <div class="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/30 space-y-1">
+                <span class="text-[10px] uppercase font-bold text-blue-300 block tracking-wider">Ukuran Lot</span>
+                <span id="result-lot" class="text-base sm:text-lg font-mono font-black text-blue-400 block">0.05 Lot</span>
+                <span class="text-[10px] text-blue-300/70 block">Formula Anti-MC</span>
+              </div>
+
+              <!-- Money at Risk -->
+              <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800/80 space-y-1">
+                <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider" id="label-max-loss">Max Loss (Risiko)</span>
+                <span id="result-max-loss" class="text-base sm:text-lg font-mono font-bold text-amber-400 block">0.00 USC</span>
+                <span id="result-risk-pct" class="text-[10px] text-slate-500 block">Tepat 1.0% Saldo</span>
+              </div>
+
+              <!-- Distance SL Pips -->
+              <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800/80 space-y-1">
+                <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Jarak SL</span>
+                <span id="result-sl-pips" class="text-base sm:text-lg font-mono font-bold text-slate-200 block">25.0 Pips</span>
+                <span class="text-[10px] text-slate-500 block">Termasuk Spread</span>
+              </div>
+
+            </div>
+
+            <!-- Anti-Margin Call Safety Guarantee Callout -->
+            <div class="p-3.5 sm:p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs sm:text-sm text-emerald-200 flex items-start gap-3">
+              <span class="text-emerald-400 text-lg">🛡️</span>
+              <div class="space-y-0.5">
+                <strong class="font-bold text-emerald-300 block">Jaminan Keamanan Anti-Margin Call:</strong>
+                <p id="result-anti-mc-text" class="text-slate-300 text-xs sm:text-xs">
+                  Dengan ukuran lot di atas, jika harga menyentuh Stop Loss, akun hanya akan berkurang maksimal 1.0% dari saldo. Modal Anda terlindungi secara matematis dari risiko margin call.
+                </p>
+              </div>
+            </div>
+
+            <!-- Deep Analysis Details (Narrative, News, Seasonality) -->
+            <div class="space-y-3">
+              <!-- Subtabs -->
+              <div class="flex items-center gap-2 border-b border-white/10 pb-2">
+                <button onclick="switchAnalysisTab('narrative')" id="subtab-narrative-btn" class="px-3 py-1 rounded-lg text-xs font-semibold text-blue-400 bg-blue-500/10">🧠 Analisa AI</button>
+                <button onclick="switchAnalysisTab('news')" id="subtab-news-btn" class="px-3 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white">📰 Berita & Kalender</button>
+                <button onclick="switchAnalysisTab('seasonality')" id="subtab-seasonality-btn" class="px-3 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white">📅 Musiman 1 Thn Lalu</button>
+              </div>
+
+              <!-- Content Narrative -->
+              <div id="subtab-narrative" class="space-y-2 text-xs sm:text-sm text-slate-300 leading-relaxed bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+                <p id="result-ai-narrative">Daily berada dalam tren Bullish di atas EMA 200. M30 mengalami pullback ke area Support...</p>
+              </div>
+
+              <!-- Content News -->
+              <div id="subtab-news" class="space-y-2 text-xs text-slate-300 hidden bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+                <div id="result-calendar-status" class="p-2.5 rounded-lg bg-slate-800 font-medium text-slate-200 mb-2">
+                  No high-impact economic calendar events in the immediate 30-minute window.
+                </div>
+                <div class="font-bold text-slate-400 text-[11px] uppercase tracking-wider">Headline Terkini:</div>
+                <pre id="result-news-headlines" class="font-sans whitespace-pre-line text-slate-300 text-xs">- Berita pasar terkini</pre>
+              </div>
+
+              <!-- Content Seasonality -->
+              <div id="subtab-seasonality" class="space-y-2 text-xs text-slate-300 hidden bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+                <p id="result-seasonality-note">Pada tanggal yang sama tahun lalu, pair ini menunjukkan konsolidasi sebelum menguat di sesi New York.</p>
+              </div>
+            </div>
+
+            <!-- Human-in-the-Loop Action Buttons -->
+            <div class="pt-2 flex flex-col sm:flex-row items-center gap-3">
+              <button id="execute-order-btn" onclick="confirmExecuteOrder()" class="w-full sm:flex-1 py-3.5 px-6 rounded-xl btn-buy font-bold text-sm flex items-center justify-center gap-2">
+                <span>🚀 Pasang Order ke MT5</span>
+              </button>
+              <button id="reject-order-btn" onclick="confirmRejectOrder()" class="w-full sm:w-auto py-3.5 px-6 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-sm transition">
+                <span>✕ Abaikan</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ================= TAB 2: HISTORY & JOURNAL ================= -->
+      <section id="tab-history" class="tab-content space-y-5 hidden">
+        
+        <!-- Header & Subtab Switcher -->
+        <div class="glass-panel p-5 sm:p-6 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                <span>Riwayat Trading & Performa AI</span>
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">MT5 Synchronized</span>
+              </h2>
+              <p class="text-xs text-slate-400">Verifikasi tiket eksekusi dari AI Trade terhadap riwayat deals MT5, perhitungan Win Rate, dan realisasi profit/loss.</p>
+            </div>
+            
+            <div class="flex items-center gap-2">
+              <button onclick="loadTradingHistory()" class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white flex items-center gap-1.5 transition shadow-lg shadow-blue-600/20">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                <span>Sinkronkan MT5</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- View Sub-tabs -->
+          <div class="flex items-center gap-2 border-b border-slate-800 pb-3">
+            <button id="subtab-btn-performance" onclick="switchHistorySubTab('performance')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-500/10 text-blue-400 border border-blue-500/30 transition">
+              🏆 Riwayat Trading MT5 & Win Rate
+            </button>
+            <button id="subtab-btn-analysis" onclick="switchHistorySubTab('analysis')" class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition">
+              📝 Log Rekomendasi Analisa
+            </button>
+          </div>
+
+          <!-- Subtab 1: Performance KPI Dashboard -->
+          <div id="subtab-content-performance" class="space-y-4">
+            
+            <!-- 4 KPI Cards Grid -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              
+              <!-- Win Rate Card -->
+              <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1.5 relative overflow-hidden">
+                <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Win Rate AI</div>
+                <div class="flex items-baseline gap-2">
+                  <span id="stat-win-rate" class="text-2xl sm:text-3xl font-black text-emerald-400">0.0%</span>
+                  <span id="stat-win-loss-count" class="text-[11px] font-mono text-slate-400">0W / 0L</span>
+                </div>
+                <!-- Mini Win Rate Bar -->
+                <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden flex">
+                  <div id="stat-win-bar" class="bg-emerald-500 h-full transition-all duration-500" style="width: 0%"></div>
+                  <div id="stat-loss-bar" class="bg-red-500 h-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+                <div class="text-[10px] text-slate-500">Dari seluruh trade closed</div>
+              </div>
+
+              <!-- Total Net P/L Card -->
+              <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1.5">
+                <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total Net Profit / Loss</div>
+                <div class="flex items-baseline gap-1">
+                  <span id="stat-total-pnl" class="text-2xl sm:text-3xl font-black text-emerald-400">+0.00</span>
+                  <span id="stat-pnl-currency" class="text-xs font-bold text-slate-400">USC</span>
+                </div>
+                <div class="text-[10px] text-slate-400 flex items-center justify-between">
+                  <span>Floating: <strong id="stat-floating-pnl" class="font-mono text-slate-300">0.00</strong></span>
+                  <span id="stat-be-count" class="text-slate-500">0 Impas</span>
+                </div>
+              </div>
+
+              <!-- Profit Factor Card -->
+              <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1.5">
+                <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Profit Factor</div>
+                <div class="text-2xl sm:text-3xl font-black text-blue-400" id="stat-profit-factor">0.00</div>
+                <div class="text-[10px] text-slate-400 font-mono truncate">
+                  Win: <span id="stat-gross-win" class="text-emerald-400 font-bold">+0.00</span> | Loss: <span id="stat-gross-loss" class="text-red-400 font-bold">0.00</span>
+                </div>
+              </div>
+
+              <!-- Total Matched AI Trades Card -->
+              <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1.5">
+                <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total Trade AI</div>
+                <div class="text-2xl sm:text-3xl font-black text-purple-400" id="stat-total-trades">0</div>
+                <div class="text-[10px] text-slate-400 flex items-center gap-1.5 font-mono">
+                  <span id="stat-open-count" class="text-blue-300 font-semibold">0 Open</span> • 
+                  <span id="stat-pending-count" class="text-amber-300 font-semibold">0 Pending</span>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Matched Trades List Container -->
+            <div class="space-y-3">
+              <div class="flex items-center justify-between text-xs text-slate-400 px-1">
+                <span class="font-semibold text-slate-300">Daftar Eksekusi Tiket AI & Realisasi MT5</span>
+                <span class="text-[11px] text-slate-500 font-mono">Dual Time: GMT+0 & GMT+7</span>
+              </div>
+              <div id="trading-performance-container" class="space-y-3">
+                <div class="text-center py-10 text-slate-500 text-xs">
+                  <span class="spinner mr-2"></span> Memuat riwayat trading & mencocokkan tiket MT5...
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Subtab 2: Log Rekomendasi Analisa Container -->
+          <div id="subtab-content-analysis" class="space-y-3 hidden">
+            <div id="history-container" class="space-y-3">
+              <div class="text-center py-10 text-slate-500 text-xs">Memuat log analisa...</div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ================= TAB 3: SETTINGS ================= -->
+      <section id="tab-settings" class="tab-content space-y-6 hidden">
+        <div class="glass-panel p-5 sm:p-7 space-y-6">
+          <div>
+            <h2 class="text-base sm:text-lg font-bold text-white">Pengaturan Sistem (Settings)</h2>
+            <p class="text-xs text-slate-400">Konfigurasi akun MT5, LLM AI, Whitelist Simbol, dan Filter Berita.</p>
+          </div>
+
+          <form id="settings-form" onsubmit="handleSaveSettings(event)" class="space-y-6">
+            
+            <!-- MT5 Account Settings -->
+            <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-blue-400">1. Konfigurasi Akun MetaTrader 5 (HFM)</h3>
+                <div class="flex items-center gap-2">
+                  <button type="button" onclick="refreshMT5Account()" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-semibold transition flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    <span>Cek Saldo Real-Time</span>
+                  </button>
+                  <button type="button" onclick="testMT5Connection()" class="px-3 py-1 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 text-xs font-semibold transition">
+                    Test MT5 Connection
+                  </button>
+                </div>
+              </div>
+
+              <!-- Tip Box -->
+              <div class="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300 flex items-start gap-2">
+                <svg class="w-4 h-4 mt-0.5 shrink-0 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span><strong>Deteksi Otomatis:</strong> Di Windows, jika terminal MetaTrader 5 Anda sudah terbuka dan login ke akun demo/real, sistem otomatis menghubungkan saldo dan equity secara langsung!</span>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div class="space-y-1">
+                  <label class="text-xs text-slate-400">Nomor Akun MT5</label>
+                  <input type="text" id="setting-mt5-account" class="custom-input" placeholder="89241512">
+                </div>
+                <div class="space-y-1">
+                  <label class="text-xs text-slate-400">Password MT5</label>
+                  <input type="password" id="setting-mt5-password" class="custom-input" placeholder="********">
+                </div>
+                <div class="space-y-1">
+                  <label class="text-xs text-slate-400">Server MT5</label>
+                  <input type="text" id="setting-mt5-server" class="custom-input" placeholder="HFMarkets-Demo">
+                </div>
+                <div class="space-y-1 sm:col-span-3">
+                  <label class="text-xs text-slate-400 flex items-center justify-between">
+                    <span>Path Terminal64.exe (Opsional)</span>
+                    <span class="text-[10px] text-slate-500 font-mono">Biarkan kosong untuk auto-detect</span>
+                  </label>
+                  <input type="text" id="setting-mt5-path" class="custom-input font-mono text-xs" placeholder="C:\Program Files\HFM MetaTrader 5\terminal64.exe">
+                </div>
+              </div>
+            </div>
+
+            <!-- LLM Engine Settings -->
+            <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3">
+              <div class="flex items-center justify-between">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-purple-400">2. Konfigurasi AI Engine (LLM)</h3>
+                <button type="button" onclick="testLLMConnection()" class="px-3 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 text-xs font-semibold transition">
+                  Test LLM API
+                </button>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div class="space-y-1">
+                  <label class="text-xs text-slate-400">Provider AI</label>
+                  <select id="setting-llm-provider" class="custom-input bg-slate-900">
+                    <option value="openai">OpenAI (atau OpenAI Compatible)</option>
+                    <option value="claude">Anthropic Claude</option>
+                  </select>
+                </div>
+                <div class="space-y-1">
+                  <label class="text-xs text-slate-400">Model Name</label>
+                  <input type="text" id="setting-llm-model" class="custom-input" placeholder="gpt-4o">
+                </div>
+                <div class="space-y-1">
+                  <label class="text-xs text-slate-400">API Key</label>
+                  <input type="password" id="setting-llm-key" class="custom-input" placeholder="sk-..." autocomplete="new-password">
+                </div>
+                <div class="space-y-1 sm:col-span-3">
+                  <label class="text-xs text-slate-400 flex items-center justify-between">
+                    <span>Custom OpenAI Base URL (Opsional / OpenAI Compatible API)</span>
+                    <span class="text-[10px] text-purple-400 font-mono">e.g. OpenRouter, DeepSeek, Local Ollama/vLLM</span>
+                  </label>
+                  <input type="text" id="setting-llm-base-url" class="custom-input font-mono text-xs" placeholder="https://api.deepseek.com/v1 atau http://localhost:11434/v1">
+                  <p class="text-[10px] text-slate-500">Biarkan kosong jika memakai server resmi OpenAI. Isi jika memakai API pihak ketiga yang kompatibel dengan protokol OpenAI.</p>
+                </div>
+              </div>
+              <p class="text-[11px] text-slate-500">Catatan: Jika API Key dikosongkan, sistem otomatis mengaktifkan AI Analyst kuantitatif internal berbasis SOP teknikal.</p>
+            </div>
+
+            <!-- Risk Management & Spread Buffer -->
+            <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-amber-400">3. Manajemen Risiko & Buffer Spread</h3>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div class="space-y-1">
+                  <label class="text-xs text-slate-400">Batas Maksimal Loss (%) Per Trade</label>
+                  <input type="number" step="0.1" id="setting-max-risk" class="custom-input" placeholder="1.0">
+                </div>
+                <div class="space-y-1">
+                  <label class="text-xs text-slate-400">Buffer Spread HFM (Pips)</label>
+                  <input type="number" step="0.1" id="setting-spread-buffer" class="custom-input" placeholder="1.4">
+                </div>
+              </div>
+            </div>
+
+            <!-- News Sources Toggle -->
+            <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-400">4. Sumber Berita & Kalender Ekonomi</h3>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs text-slate-300">
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" id="news-toggle-ff" class="rounded bg-slate-800 text-blue-500 focus:ring-0">
+                  <span>Forex Factory (JSON)</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" id="news-toggle-fj" class="rounded bg-slate-800 text-blue-500 focus:ring-0">
+                  <span class="text-emerald-300 font-semibold">FinancialJuice.com</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" id="news-toggle-fl" class="rounded bg-slate-800 text-blue-500 focus:ring-0">
+                  <span>ForexLive RSS</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" id="news-toggle-yf" class="rounded bg-slate-800 text-blue-500 focus:ring-0">
+                  <span>Yahoo Finance</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" id="news-toggle-gn" class="rounded bg-slate-800 text-blue-500 focus:ring-0">
+                  <span>Google News RSS</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" id="news-toggle-msn" class="rounded bg-slate-800 text-blue-500 focus:ring-0">
+                  <span>MSN Money RSS</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Remote Database Configuration -->
+            <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3">
+              <div class="flex items-center justify-between">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400">5. Konfigurasi Basis Data (Remote MySQL)</h3>
+                <button type="button" onclick="testDBConnection()" class="px-3 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 text-xs font-semibold transition">
+                  Test DB Connection
+                </button>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div class="space-y-1">
+                  <label class="text-xs text-slate-400">Tipe Database</label>
+                  <select id="setting-db-type" class="custom-input bg-slate-900">
+                    <option value="sqlite">SQLite (Lokal)</option>
+                    <option value="mysql">MySQL (Remote Server)</option>
+                  </select>
+                </div>
+                <div class="space-y-1">
+                  <label class="text-xs text-slate-400">Host Remote MySQL</label>
+                  <input type="text" id="setting-db-host" class="custom-input" placeholder="e.g. 192.168.1.100 atau db.broker.com">
+                </div>
+                <div class="space-y-1">
+                  <label class="text-xs text-slate-400">Port MySQL</label>
+                  <input type="number" id="setting-db-port" class="custom-input" placeholder="3306" value="3306">
+                </div>
+                <div class="space-y-1">
+                  <label class="text-xs text-slate-400">Username DB</label>
+                  <input type="text" id="setting-db-user" class="custom-input" placeholder="root">
+                </div>
+                <div class="space-y-1">
+                  <label class="text-xs text-slate-400">Password DB</label>
+                  <input type="password" id="setting-db-password" class="custom-input" placeholder="••••••••">
+                </div>
+                <div class="space-y-1">
+                  <label class="text-xs text-slate-400">Nama Database</label>
+                  <input type="text" id="setting-db-name" class="custom-input" placeholder="ai_trade" value="ai_trade">
+                </div>
+              </div>
+              <p class="text-[11px] text-slate-500">Jika memilih MySQL, pastikan remote server MySQL mengizinkan koneksi dari IP komputer Anda dan skema <code class="font-mono text-cyan-300">schema.sql</code> telah diimport.</p>
+            </div>
+
+            <!-- Whitelist Symbols Manager -->
+            <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3">
+              <div class="flex items-center justify-between">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-blue-400">6. Whitelist Simbol MT5 & Base Instrument</h3>
+                <button type="button" onclick="showAddSymbolModal()" class="px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold">
+                  + Tambah Simbol
+                </button>
+              </div>
+              <div id="symbols-table-container" class="space-y-2">
+                <!-- Injected via JS -->
+              </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="w-full py-3.5 px-6 rounded-xl btn-primary font-bold text-sm">
+              Simpan Semua Pengaturan
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- ================= TAB 4: SECURITY & PASSWORD CONFIG ================= -->
+      <section id="tab-security" class="tab-content space-y-6 hidden">
+        <div class="glass-panel p-5 sm:p-7 max-w-xl mx-auto space-y-6">
+          <div class="space-y-1">
+            <h2 class="text-base sm:text-lg font-bold text-white">Keamanan & Ubah Password</h2>
+            <p class="text-xs text-slate-400">Password statis aplikasi tersimpan pada file <code class="font-mono text-blue-400">config.json</code>. Anda dapat menggantinya langsung dari form ini.</p>
+          </div>
+
+          <form id="change-password-form" onsubmit="handleChangePassword(event)" class="space-y-4">
+            <div class="space-y-1">
+              <label class="text-xs text-slate-300 font-semibold">Password Saat Ini</label>
+              <input type="password" id="current-password" required class="custom-input" placeholder="••••••••">
+            </div>
+            <div class="space-y-1">
+              <label class="text-xs text-slate-300 font-semibold">Password Baru</label>
+              <input type="password" id="new-password" required minlength="6" class="custom-input" placeholder="Minimal 6 karakter">
+            </div>
+            <div class="space-y-1">
+              <label class="text-xs text-slate-300 font-semibold">Konfirmasi Password Baru</label>
+              <input type="password" id="confirm-password" required minlength="6" class="custom-input" placeholder="Ulangi password baru">
+            </div>
+
+            <button type="submit" class="w-full py-3 px-4 rounded-xl btn-primary font-bold text-sm">
+              Perbarui Password & Simpan ke Config
+            </button>
+          </form>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Mobile Bottom Navigation Bar -->
+    <nav class="bottom-nav">
+      <div class="nav-item active" onclick="switchTab('analyze')" data-tab="analyze">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <span>Analisa</span>
+      </div>
+      <div class="nav-item" onclick="switchTab('history')" data-tab="history">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        <span>Riwayat</span>
+      </div>
+      <div class="nav-item" onclick="switchTab('settings')" data-tab="settings">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <span>Pengaturan</span>
+      </div>
+      <div class="nav-item" onclick="switchTab('security')" data-tab="security">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+        <span>Password</span>
+      </div>
+    </nav>
+
+  </div>
+
+  <!-- Add Symbol Modal -->
+  <div id="add-symbol-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm hidden">
+    <div class="glass-panel w-full max-w-sm p-6 space-y-4">
+      <h3 class="text-base font-bold text-white">Tambah Simbol Baru</h3>
+      <form onsubmit="handleAddSymbol(event)" class="space-y-3">
+        <div class="space-y-1">
+          <label class="text-xs text-slate-400">Simbol MT5 (e.g. XAUUSDc)</label>
+          <input type="text" id="new-mt5-symbol" required class="custom-input" placeholder="XAUUSDc">
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs text-slate-400">Base Symbol (e.g. XAUUSD)</label>
+          <input type="text" id="new-base-symbol" required class="custom-input" placeholder="XAUUSD">
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs text-slate-400">Nama Tampilan</label>
+          <input type="text" id="new-display-name" required class="custom-input" placeholder="Gold Cent Account">
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs text-slate-400">Pip Size</label>
+          <input type="number" step="0.00001" id="new-pip-size" required class="custom-input" value="0.01">
+        </div>
+        <div class="flex items-center justify-end gap-2 pt-2">
+          <button type="button" onclick="hideAddSymbolModal()" class="px-4 py-2 rounded-lg bg-slate-800 text-xs font-semibold text-slate-300">Batal</button>
+          <button type="submit" class="px-4 py-2 rounded-lg btn-primary text-xs font-semibold">Simpan Simbol</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js?v=2.7.0"></script>
+  <script>
+    // Failsafe Header Live Clock Runner (Tick every second)
+    (function runHeaderClocks() {
+      function tick() {
+        const now = new Date();
+        const pad = n => String(n).padStart(2, '0');
+
+        // 1. GMT+0 (UTC / Market)
+        const gmtEl = document.getElementById("clock-gmt");
+        if (gmtEl) {
+          gmtEl.innerText = `${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())}`;
+        }
+
+        // 2. GMT+7 (WIB / Jakarta)
+        const d7 = new Date(now.getTime() + (7 * 3600 * 1000));
+        const gmt7El = document.getElementById("clock-gmt7");
+        if (gmt7El) {
+          gmt7El.innerText = `${pad(d7.getUTCHours())}:${pad(d7.getUTCMinutes())}:${pad(d7.getUTCSeconds())}`;
+        }
+
+        // 3. Highlight Market Sessions
+        const utcH = now.getUTCHours();
+        const tok = document.getElementById("session-tokyo");
+        const lon = document.getElementById("session-london");
+        const ny = document.getElementById("session-ny");
+        if (tok) tok.className = (utcH >= 0 && utcH < 9) ? "px-2 py-0.5 rounded text-[11px] font-bold text-amber-300 bg-amber-500/20 border border-amber-500/30" : "px-2 py-0.5 rounded text-[11px] font-medium text-slate-400 bg-slate-800/50";
+        if (lon) lon.className = (utcH >= 8 && utcH < 16) ? "px-2 py-0.5 rounded text-[11px] font-bold text-emerald-300 bg-emerald-500/20 border border-emerald-500/30" : "px-2 py-0.5 rounded text-[11px] font-medium text-slate-400 bg-slate-800/50";
+        if (ny) ny.className = (utcH >= 13 && utcH < 21) ? "px-2 py-0.5 rounded text-[11px] font-bold text-blue-300 bg-blue-500/20 border border-blue-500/30" : "px-2 py-0.5 rounded text-[11px] font-medium text-slate-400 bg-slate-800/50";
+      }
+      tick();
+      setInterval(tick, 1000);
+    })();
+  </script>
+</body>
+</html>

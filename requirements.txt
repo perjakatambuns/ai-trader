@@ -1,0 +1,24 @@
+# AI Trading Copilot - Dependencies
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.8.0
+python-multipart>=0.0.9
+sqlalchemy>=2.0.0
+pymysql>=1.1.0
+cryptography>=43.0.0
+numpy>=1.26.0
+pandas>=2.2.0
+yfinance>=0.2.40
+feedparser>=6.0.11
+beautifulsoup4>=4.12.0
+httpx>=0.27.0
+requests>=2.32.0
+openai>=1.40.0
+anthropic>=0.34.0
+python-dotenv>=1.0.1
+bcrypt>=4.2.0
+pyjwt>=2.9.0
+
+# MetaTrader 5 (Windows only)
+# Disertakan otomatis saat instalasi di sistem operasi Windows:
+MetaTrader5>=5.0.45; sys_platform == 'win32'
